@@ -669,7 +669,7 @@ def procesar3MF(model_name: str, archivo_3mf_path: str) -> Optional[str]:
             try:
                 with open(config_path, "r", encoding="utf-8") as f:
                     content = f.read()
-                today = datetime.datetime.now().strftime("%Y-%m-%d")
+                today = datetime.now().strftime("%Y-%m-%d")
                 content = re.sub(r'(CreationDate" value=")[^"]*(")', fr'\1{today}\2', content)
                 with open(config_path, "w", encoding="utf-8") as f:
                     f.write(content)
