@@ -25,10 +25,12 @@ f:\Proyectos\Creality_bot\
 ├── test_rapido.py             # Test rápido de funciones básicas
 ├── models_db.json             # Base de datos de modelos
 ├── .env                       # Variables de entorno (email/password)
-├── descargas/                 # Archivos 3MF descargados (se crea automáticamente)
-├── tmp/                       # Archivos temporales (se limpian automáticamente)
-├── plantillas/                # Plantillas para diferentes impresoras
 └── README.md                  # Este archivo
+
+# Directorios de trabajo (en E:\ por espacio)
+E:\descargas\                  # Archivos 3MF descargados
+E:\creality_bot\tmp\           # Archivos temporales (se limpian automáticamente)
+E:\creality_bot\plantillas\    # Plantillas para diferentes impresoras
 ```
 
 ## ⚙️ Configuración
@@ -50,13 +52,13 @@ pip install requests pillow python-dotenv
 
 ### 3. Estructura de directorios
 
-Los directorios se crean automáticamente en la carpeta raíz del proyecto:
+Los directorios se crean automáticamente, pero puedes crearlos manualmente:
 
 ```bash
-# Se crean automáticamente, pero aquí es donde estarán:
-./descargas/      # Archivos 3MF descargados
-./tmp/            # Archivos temporales
-./plantillas/     # Plantillas de impresoras
+# En E:\ (o cambiar en models.py si prefieres otra ubicación)
+mkdir E:\descargas
+mkdir E:\creality_bot\tmp
+mkdir E:\creality_bot\plantillas
 ```
 
 ## 🔧 Uso
@@ -217,7 +219,7 @@ DEBUG_HTTP=1       # Logs de requests HTTP
    - Check conectividad a `*.oss-us-east-1.aliyuncs.com`
 
 3. **"Archivo 3MF no encontrado"**
-   - Verifica que la carpeta `descargas/` sea escribible
+   - Verifica que exista `E:\descargas\` y sea escribible
    - Check que la descarga del 3MF haya sido exitosa
 
 ## 🎯 Roadmap
@@ -226,77 +228,6 @@ DEBUG_HTTP=1       # Logs de requests HTTP
 - [ ] Procesamiento batch mejorado  
 - [ ] Soporte para más tipos de archivo
 - [ ] Integración con más plataformas
-
-## 🚀 Despliegue en servidor (Orange Pi / Debian/Ubuntu)
-
-Sigue estos pasos para que el bot se ejecute automáticamente al arrancar tu servidor.
-
-### 1) Prerrequisitos
-
-- Python 3 y Git instalados
-- Acceso a Internet
-
-### 2) Clonar y preparar entorno
-
-```bash
-sudo apt update
-sudo apt install -y python3 python3-venv git
-
-cd /home/orangepi
-git clone https://github.com/adriviciano/3d_upload_bot.git
-cd 3d_upload_bot
-
-# Crear entorno virtual e instalar dependencias
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-
-# Crear archivo .env con valores por defecto (sustituye por los tuyos)
-cat > .env << 'EOF'
-CREALITY_ACCOUNT="tu_email@example.com"
-CREALITY_PASSWORD="tu_password_segura"
-EOF
-
-# Prueba manual
-python ejecutar_bot.py
-```
-
-### 3) Arranque automático con systemd
-
-```bash
-sudo tee /etc/systemd/system/creality-bot.service > /dev/null <<'EOF'
-[Unit]
-Description=Creality 3D Upload Bot
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=orangepi
-WorkingDirectory=/home/orangepi/3d_upload_bot
-EnvironmentFile=/home/orangepi/3d_upload_bot/.env
-ExecStart=/home/orangepi/3d_upload_bot/.venv/bin/python -u ejecutar_bot.py
-Restart=on-failure
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable creality-bot.service
-sudo systemctl start creality-bot.service
-
-# Ver estado y logs
-systemctl status creality-bot.service
-journalctl -u creality-bot.service -f
-```
-
-### Notas
-
-- El bot usa carpetas del proyecto: `tmp/` (temporal, se limpia) y `plantillas/`.
-- Ajusta `User=` y rutas si tu usuario o ubicación del proyecto son diferentes.
-- No subas `.env` al repositorio (ya está excluido en `.gitignore`).
 - [ ] Sistema de cola distribuido
 
 ## 📝 Licencia
