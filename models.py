@@ -25,6 +25,9 @@ OSS_3MF_BASE_URL = "https://internal-creality-usa.oss-us-east-1.aliyuncs.com"
 OSS_IMAGE_BASE_URL = "https://pic2-creality.oss-us-east-1.aliyuncs.com"
 CDN_IMAGE_BASE_URL = "https://pic2-cdn.creality.com/crealityCloud/upload"
 
+# Directorio base del proyecto (carpeta raíz donde está este archivo)
+BASE_DIR = Path(__file__).resolve().parent
+
 
 @dataclass
 class ModelInfo:
@@ -576,8 +579,8 @@ def procesar3MF(model_name: str, archivo_3mf_path: str) -> Optional[str]:
     Returns:
         Ruta a la carpeta del modelo procesado, o None si hay error
     """
-    tmp_folder = r"E:\creality_bot\tmp"
-    plantillas_folder = r"E:\creality_bot\plantillas"
+    tmp_folder = str(BASE_DIR / "tmp")
+    plantillas_folder = str(BASE_DIR / "plantillas")
 
     os.makedirs(tmp_folder, exist_ok=True)
 

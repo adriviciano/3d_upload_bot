@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<custom_gcodes_per_layer>
+<plate>
+<plate_info id="1"/>
+<mode value="MultiExtruder"/>
+</plate>
+</custom_gcodes_per_layer>
