@@ -74,7 +74,3 @@ venv.bak/
 # Logs
 *.log
 
-# Archivos temporales del proyecto
-tmp/
-*.tmp
-*.bak
