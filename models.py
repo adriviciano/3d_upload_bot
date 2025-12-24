@@ -648,10 +648,16 @@ def procesar3MF(model_name: str, archivo_3mf_path: str) -> Optional[str]:
     try:
         print(f"🔧 Procesando archivo 3MF: {model_name}")
         
-        # 1. Copiar el archivo 3MF a tmp
-        dest_path = os.path.join(tmp_folder, os.path.basename(archivo_3mf_path))
-        shutil.copy2(archivo_3mf_path, dest_path)
-        print(f"✅ Archivo copiado a {dest_path}")
+        # 1. Copiar el archivo 3MF a tmp (o usarlo directamente si ya está en tmp)
+        src_dir = os.path.dirname(os.path.abspath(archivo_3mf_path))
+        tmp_dir_abs = os.path.abspath(tmp_folder)
+        if src_dir == tmp_dir_abs:
+            dest_path = archivo_3mf_path
+            print(f"ℹ️ Archivo ya está en tmp: {dest_path}")
+        else:
+            dest_path = os.path.join(tmp_folder, os.path.basename(archivo_3mf_path))
+            shutil.copy2(archivo_3mf_path, dest_path)
+            print(f"✅ Archivo copiado a {dest_path}")
 
         # 2. Cambiar extensión a .zip
         zip_path = os.path.splitext(dest_path)[0] + ".zip"
@@ -841,7 +847,8 @@ def descargar_y_procesar_3mf(login_result: LoginResult, model_name: str, downloa
         Ruta a la carpeta del modelo procesado, o None si hay error
     """
     if download_folder is None:
-        download_folder = r"E:\descargas"
+        # Usar carpeta tmp dentro de la raíz del proyecto
+        download_folder = str(BASE_DIR / "tmp")
     
     try:
         print(f"⬇️ Descargando archivo 3MF: {model_name}")
@@ -874,10 +881,13 @@ def descargar_y_procesar_3mf(login_result: LoginResult, model_name: str, downloa
         # Procesar el archivo 3MF
         model_folder = procesar3MF(model_name, file_path)
         
-        # Eliminar el archivo 3MF original descargado
+        # Eliminar el archivo 3MF original descargado si aún existe
         if os.path.exists(file_path):
-            os.remove(file_path)
-            print(f"🗑️ Archivo 3MF original eliminado: {file_path}")
+            try:
+                os.remove(file_path)
+                print(f"🗑️ Archivo 3MF original eliminado: {file_path}")
+            except Exception as e:
+                print(f"⚠️ No se pudo eliminar el archivo original (puede haber sido renombrado durante el proceso): {e}")
         
         return model_folder
         
