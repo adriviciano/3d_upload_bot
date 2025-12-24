@@ -320,6 +320,67 @@ def search_models_by_name(models: List[ModelInfo], search_term: str) -> List[Mod
     return [model for model in models if search_term in model.name.lower()]
 
 
+def obtener_modelos_populares(
+    login_result: LoginResult,
+    db: ModelDatabase,
+    max_paginas: int = 5,
+    page_size: int = 20,
+    solo_gratis: bool = True
+) -> List[str]:
+    """
+    Obtiene nombres de modelos populares (tendencia) y actualiza la base local.
+
+    - Recorre hasta `max_paginas` páginas de la lista trending.
+    - Añade a `db` los modelos nuevos (con `visited=False`).
+    - Devuelve una lista con los nombres recién añadidos; si no hay nuevos,
+      devuelve los no visitados para seguir procesándolos.
+
+    Args:
+        login_result: Resultado del login con tokens y sesión.
+        db: Instancia de la base de datos local de modelos.
+        max_paginas: Número máximo de páginas a consultar.
+        page_size: Cantidad de modelos por página.
+        solo_gratis: Si True, filtra solo modelos gratuitos.
+
+    Returns:
+        Lista de nombres de modelos por procesar.
+    """
+
+    if not login_result.model_token or not login_result.model_user_id:
+        raise RuntimeError("Se requiere model_token y model_user_id. Asegúrate de hacer login primero.")
+
+    nuevos: set[str] = set()
+
+    for page in range(1, max_paginas + 1):
+        try:
+            modelos = list_trending_models(
+                login_result=login_result,
+                page=page,
+                page_size=page_size,
+                is_pay=2 if solo_gratis else 0,
+                save_to_db=False,
+                db_path=str(db.db_path)
+            )
+
+            for m in modelos:
+                # Añadir si no existe
+                if m.name not in db.models:
+                    db.add_model(m.name, m.id, visited=False)
+                    nuevos.add(m.name)
+        except Exception as e:
+            print(f"⚠️ Error obteniendo modelos populares (página {page}): {e}")
+            break
+
+    # Guardar cambios en la base
+    db.save_database()
+
+    # Si no se encontraron nuevos, devolver los no visitados
+    if not nuevos:
+        return list(db.get_unvisited_models().keys())
+
+    return sorted(nuevos)
+
+
 @dataclass
 class Model3MFInfo:
     """Información de un archivo 3MF de un modelo específico."""
