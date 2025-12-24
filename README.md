@@ -25,12 +25,10 @@ f:\Proyectos\Creality_bot\
 ├── test_rapido.py             # Test rápido de funciones básicas
 ├── models_db.json             # Base de datos de modelos
 ├── .env                       # Variables de entorno (email/password)
+├── descargas/                 # Archivos 3MF descargados (se crea automáticamente)
+├── tmp/                       # Archivos temporales (se limpian automáticamente)
+├── plantillas/                # Plantillas para diferentes impresoras
 └── README.md                  # Este archivo
-
-# Directorios de trabajo (en E:\ por espacio)
-E:\descargas\                  # Archivos 3MF descargados
-E:\creality_bot\tmp\           # Archivos temporales (se limpian automáticamente)
-E:\creality_bot\plantillas\    # Plantillas para diferentes impresoras
 ```
 
 ## ⚙️ Configuración
@@ -52,13 +50,13 @@ pip install requests pillow python-dotenv
 
 ### 3. Estructura de directorios
 
-Los directorios se crean automáticamente, pero puedes crearlos manualmente:
+Los directorios se crean automáticamente en la carpeta raíz del proyecto:
 
 ```bash
-# En E:\ (o cambiar en models.py si prefieres otra ubicación)
-mkdir E:\descargas
-mkdir E:\creality_bot\tmp
-mkdir E:\creality_bot\plantillas
+# Se crean automáticamente, pero aquí es donde estarán:
+./descargas/      # Archivos 3MF descargados
+./tmp/            # Archivos temporales
+./plantillas/     # Plantillas de impresoras
 ```
 
 ## 🔧 Uso
@@ -219,7 +217,7 @@ DEBUG_HTTP=1       # Logs de requests HTTP
    - Check conectividad a `*.oss-us-east-1.aliyuncs.com`
 
 3. **"Archivo 3MF no encontrado"**
-   - Verifica que exista `E:\descargas\` y sea escribible
+   - Verifica que la carpeta `descargas/` sea escribible
    - Check que la descarga del 3MF haya sido exitosa
 
 ## 🎯 Roadmap
