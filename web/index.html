@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creality Bot - Monitor</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Creality Cloud Bot Monitor</h1>
+            <p class="timestamp" id="timestamp">Última actualización: --:--:--</p>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="procesados">0</div>
+                <div class="stat-label">Modelos Procesados</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="subidos">0</div>
+                <div class="stat-label">Archivos Subidos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="errores">0</div>
+                <div class="stat-label">Errores</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="pagina">0</div>
+                <div class="stat-label">Página Actual</div>
+            </div>
+        </div>
+
+        <div class="status-section">
+            <h2>Estado Actual</h2>
+            <div class="status-box">
+                <div class="status-header">
+                    <span class="status-indicator" id="status-indicator"></span>
+                    <span class="status-text" id="estado">Cargando...</span>
+                </div>
+                <div class="current-model" id="modelo-actual">
+                    Esperando información...
+                </div>
+            </div>
+        </div>
+
+        <div class="logs-section">
+            <h2>Últimos Errores</h2>
+            <div class="logs-container" id="logs-container">
+                <p class="no-errors">Sin errores</p>
+            </div>
+        </div>
+
+        <footer>
+            <p>Actualizando cada 5 segundos...</p>
+        </footer>
+    </div>
+
+    <script src="static/script.js"></script>
+</body>
+</html>
