@@ -15,6 +15,7 @@ from models import (
     descargar_y_procesar_3mf,
     subir_todos_los_perfiles
 )
+from status import bot_status
 
 
 def load_dotenv(path: Path = Path(".env")) -> None:
@@ -62,8 +63,11 @@ def main():
         subidos_total = 0
         errores_total = 0
 
+        bot_status.actualizar(estado="Iniciado correctamente", pagina=pagina)
+
         while True:
             print(f"\n🔍 Obteniendo modelos de página {pagina}...")
+            bot_status.actualizar(estado="Buscando modelos", pagina=pagina)
 
             # Obtener modelos de esta página
             modelos = list_trending_models(
@@ -76,6 +80,7 @@ def main():
 
             if not modelos:
                 print("✅ No hay más modelos disponibles")
+                bot_status.actualizar(estado="Completado - sin más modelos")
                 break
 
             print(f"   📊 Obtuvieron {len(modelos)} modelos")
@@ -102,6 +107,15 @@ def main():
             for i, model_name in enumerate(modelos_sin_visitar, 1):
                 print(f"\n📦 [{pagina}-{i}/{len(modelos_sin_visitar)}] Procesando: {model_name}")
                 print("-" * 60)
+
+                bot_status.actualizar(
+                    estado="Procesando",
+                    modelo_actual=model_name,
+                    pagina=pagina,
+                    modelos_procesados=procesados_total,
+                    archivos_subidos=subidos_total,
+                    errores=errores_total
+                )
 
                 try:
                     # 1. Obtener información del modelo
@@ -140,6 +154,10 @@ def main():
                         print(f"   ✅ Subidos {exitosos} archivos exitosamente")
                         procesados_total += 1
                         subidos_total += exitosos
+                        bot_status.actualizar(
+                            modelos_procesados=procesados_total,
+                            archivos_subidos=subidos_total
+                        )
 
                     if fallidos > 0:
                         print(f"   ⚠️ {fallidos} archivos fallaron al subir")
@@ -151,6 +169,7 @@ def main():
                 except Exception as e:
                     print(f"   ❌ Error procesando modelo: {e}")
                     errores_total += 1
+                    bot_status.agregar_error(f"{model_name}: {str(e)[:80]}")
 
             # Pasar a siguiente página
             if len(modelos) < 20:
