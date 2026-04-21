@@ -19,6 +19,18 @@ import base64
 import hmac
 from datetime import datetime
 import xml.etree.ElementTree as ET
+from tqdm import tqdm
+
+
+def _crear_placeholder_plate(dest_path: str) -> None:
+    """Crea una imagen placeholder 400x400 cuando no existe plate_1.png."""
+    img = Image.new("RGB", (400, 400), color=(64, 64, 64))
+    img.save(dest_path, format="PNG")
+
+
+def _sanear_nombre_modelo(nombre: str) -> str:
+    """Normaliza el nombre para rutas y archivos."""
+    return nombre.strip().replace("/", "_").replace("\\", "_")
 
 CLOUD_BASE_URL = "https://www.crealitycloud.com"
 OSS_3MF_BASE_URL = "https://internal-creality-usa.oss-us-east-1.aliyuncs.com"
@@ -181,20 +193,64 @@ class ModelDatabase:
         return total, visited, unvisited
 
 
+def obtener_modelos_populares(
+    login_result: LoginResult,
+    db: 'ModelDatabase',
+    max_paginas: int = 5
+) -> List[str]:
+    """
+    Obtiene modelos populares no visitados.
+    Busca en múltiples páginas hasta encontrar modelos sin procesar.
+
+    Returns:
+        Lista de nombres de modelos sin procesar (strings)
+    """
+    for pagina in range(1, max_paginas + 1):
+        modelos_nuevos = []
+        modelos = list_trending_models(
+            login_result=login_result,
+            page=pagina,
+            page_size=20,
+            is_pay=2,
+            save_to_db=False
+        )
+        for modelo in modelos:
+            entrada = db.get_model(modelo.name)
+            # Si no existe en BD o existe pero no visitado
+            if not entrada or not entrada.visited:
+                db.add_model(modelo.name, modelo.id, visited=False)
+                modelos_nuevos.append(modelo.name)
+
+        # Si encontró modelos sin procesar, retornar
+        if modelos_nuevos:
+            db.save_database()
+            return modelos_nuevos
+
+        # Si última página, parar
+        if len(modelos) < 20:
+            break
+
+    db.save_database()
+    return []
+
+
 def list_trending_models(
     login_result: LoginResult,
     page: int = 1,
     page_size: int = 20,
-    trend_type: int = 1,       # 1 = trending
-    filter_type: int = 1,      # tipo de filtro
-    is_pay: int = 2,           # 2 = gratis, 1 = pago, 0 = todos
-    is_exclusive: int = 0,     # 0 = todos, 1 = exclusivos
-    promo_type: int = 0,       # tipo de promoción
-    is_vip: int = 0,           # 0 = todos, 1 = solo VIP
-    multi_mark: int = 0,       # marcas múltiples
-    has_cfg_file: int = 0,     # tiene archivo de configuración
+    trend_type: int = 3,
+    filter_type: int = 10,
+    is_pay: int = 2,
+    is_exclusive: int = 0,
+    promo_type: int = 0,
+    is_vip: int = 0,
+    multi_mark: int = 0,
+    has_cfg_file: int = 0,
+    has_cube_me_model: int = 1,
+    is_pick_model: int = 0,
+    is_print_always_success: int = 0,
     timeout: int = 15,
-    save_to_db: bool = True,   # guardar automáticamente en la base de datos
+    save_to_db: bool = True,
     db_path: str = "models_db.json"
 ) -> List[ModelInfo]:
     """
@@ -250,7 +306,10 @@ def list_trending_models(
         "promoType": promo_type,
         "isVip": is_vip,
         "multiMark": multi_mark,
-        "hasCfgFile": has_cfg_file
+        "hasCfgFile": has_cfg_file,
+        "hasCubeMeModel": has_cube_me_model,
+        "isPickModel": is_pick_model,
+        "isPrintAlwaysSuccess": is_print_always_success
     }
     
     # Realizar la petición
@@ -567,25 +626,32 @@ def process_model_complete(
 
 def procesar3MF(model_name: str, archivo_3mf_path: str) -> Optional[str]:
     """
-    Procesa un archivo 3MF descargado para prepararlo para la subida.
-    
-    Args:
-        model_name: Nombre del modelo
-        archivo_3mf_path: Ruta al archivo 3MF descargado
-    
-    Returns:
-        Ruta a la carpeta del modelo procesado, o None si hay error
+    Procesa un archivo 3MF y genera perfiles por impresora en un workspace aislado.
     """
-    tmp_folder = r"E:\creality_bot\tmp"
-    plantillas_folder = r"E:\creality_bot\plantillas"
 
-    os.makedirs(tmp_folder, exist_ok=True)
+    tmp_root = os.getenv("TMP_ROOT", r"E:\creality_bot\tmp")
+    plantillas_folder = os.getenv("PLANTILLAS_FOLDER", r"E:\creality_bot\plantillas")
+
+    os.makedirs(tmp_root, exist_ok=True)
+
+    clean_name = _sanear_nombre_modelo(model_name)
+    work_folder = os.path.join(tmp_root, f"{clean_name}_work")
+    model_folder = os.path.join(tmp_root, clean_name)
+
+    # Limpiar workspace previo para evitar zips enormes
+    if os.path.exists(work_folder):
+        shutil.rmtree(work_folder, ignore_errors=True)
+    if os.path.exists(model_folder):
+        shutil.rmtree(model_folder, ignore_errors=True)
+
+    os.makedirs(work_folder, exist_ok=True)
+    os.makedirs(model_folder, exist_ok=True)
 
     try:
         print(f"🔧 Procesando archivo 3MF: {model_name}")
-        
-        # 1. Copiar el archivo 3MF a tmp
-        dest_path = os.path.join(tmp_folder, os.path.basename(archivo_3mf_path))
+
+        # 1. Copiar el archivo 3MF al workspace
+        dest_path = os.path.join(work_folder, os.path.basename(archivo_3mf_path))
         shutil.copy2(archivo_3mf_path, dest_path)
         print(f"✅ Archivo copiado a {dest_path}")
 
@@ -593,20 +659,22 @@ def procesar3MF(model_name: str, archivo_3mf_path: str) -> Optional[str]:
         zip_path = os.path.splitext(dest_path)[0] + ".zip"
         os.rename(dest_path, zip_path)
 
-        # 3. Descomprimir el zip en tmp
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(tmp_folder)
+        # 3. Descomprimir el zip en work_folder
+        with zipfile.ZipFile(zip_path, "r", allowZip64=True) as zip_ref:
+            zip_ref.extractall(work_folder)
         os.remove(zip_path)
-        print(f"✅ Archivo descomprimido en {tmp_folder}")
+        print(f"✅ Archivo descomprimido en {work_folder}")
+
+        metadata_folder = os.path.join(work_folder, "Metadata")
 
         # 4. Modificar Metadata/creality.config
-        config_path = os.path.join(tmp_folder, "Metadata", "creality.config")
+        config_path = os.path.join(metadata_folder, "creality.config")
         if os.path.exists(config_path):
             try:
                 with open(config_path, "r", encoding="utf-8") as f:
                     content = f.read()
-                today = datetime.datetime.now().strftime("%Y-%m-%d")
-                content = re.sub(r'(CreationDate" value=")[^"]*(")', fr'\1{today}\2', content)
+                today = datetime.now().strftime("%Y-%m-%d")
+                content = re.sub(r'(CreationDate" value=")[:\d\- ]*(")', fr"\1{today}\2", content)
                 with open(config_path, "w", encoding="utf-8") as f:
                     f.write(content)
                 print("✅ Metadata/creality.config actualizado con la fecha actual")
@@ -615,15 +683,13 @@ def procesar3MF(model_name: str, archivo_3mf_path: str) -> Optional[str]:
         else:
             print("⚠️ creality.config no encontrado en Metadata")
 
-        # 5. Eliminar archivos de Metadata
-        metadata_folder = os.path.join(tmp_folder, "Metadata")
+        # 5. Eliminar archivos innecesarios de Metadata
         if os.path.exists(metadata_folder):
             try:
                 for f in ["custom_gcode_per_layer.xml", "project_settings.config"]:
                     f_path = os.path.join(metadata_folder, f)
                     if os.path.exists(f_path):
                         os.remove(f_path)
-                # Eliminar .gcode y .md5
                 for f in glob.glob(os.path.join(metadata_folder, "*.gcode")) + glob.glob(os.path.join(metadata_folder, "*.md5")):
                     os.remove(f)
                 print("✅ Archivos innecesarios eliminados de Metadata")
@@ -632,66 +698,46 @@ def procesar3MF(model_name: str, archivo_3mf_path: str) -> Optional[str]:
         else:
             print("⚠️ Carpeta Metadata no encontrada")
 
-        # 6. Crear carpeta del modelo en tmp
-        model_folder = os.path.join(tmp_folder, model_name)
-        os.makedirs(model_folder, exist_ok=True)
-
-        # Procesar y copiar plate_1.png a la carpeta del modelo si existe
+        # 6. Procesar plate_1.png
         plate_file = os.path.join(metadata_folder, "plate_1.png")
+        final_image_path = os.path.join(model_folder, "plate_1.png")
 
         if os.path.exists(plate_file):
             try:
-                # Procesar la imagen (reescalar y recortar)
                 processed_image_path = procesar_imagen(plate_file)
-                
-                # Copiar la imagen procesada a la carpeta del modelo
-                final_image_path = os.path.join(model_folder, "plate_1.png")
                 shutil.copy(processed_image_path, final_image_path)
-                
-                # Limpiar archivo temporal
                 if os.path.exists(processed_image_path):
                     os.remove(processed_image_path)
-                
                 print(f"✅ plate_1.png procesado y copiado a {model_folder}")
             except Exception as e:
                 print(f"⚠️ Error procesando plate_1.png: {e}")
-                # Fallback: copiar imagen original sin procesar
                 try:
-                    shutil.copy(plate_file, model_folder)
+                    shutil.copy(plate_file, final_image_path)
                     print(f"✅ plate_1.png copiado sin procesar a {model_folder}")
                 except Exception as e2:
                     print(f"⚠️ Error copiando plate_1.png original: {e2}")
         else:
-            print("⚠️ plate_1.png no encontrado en Metadata")
+            print("⚠️ plate_1.png no encontrado, creando placeholder")
+            _crear_placeholder_plate(final_image_path)
 
         # 7. Procesar cada impresora en plantillas
         impresoras_disponibles = []
         if os.path.exists(plantillas_folder):
             impresoras_disponibles = [
-                f for f in os.listdir(plantillas_folder) 
+                f for f in os.listdir(plantillas_folder)
                 if os.path.isdir(os.path.join(plantillas_folder, f))
             ]
-        
+
         if not impresoras_disponibles:
-            print(f"⚠️ No se encontraron plantillas de impresoras en: {plantillas_folder}")
-            print("⚠️ Creando archivo 3MF original sin plantillas...")
-            
-            # Crear zip de todo tmp
-            zip_name = f"{model_name}_original.zip"
-            zip_full_path = os.path.join(model_folder, zip_name)
-            
-            with zipfile.ZipFile(zip_full_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                for root, _, files in os.walk(tmp_folder):
+            print(f"⚠️ No se encontraron plantillas en: {plantillas_folder}. Se generará un único 3MF.")
+            output_path = os.path.join(model_folder, f"{clean_name}_original.3mf")
+            with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as zipf:
+                for root, _, files in os.walk(work_folder):
                     for file in files:
                         file_path = os.path.join(root, file)
-                        arcname = os.path.relpath(file_path, tmp_folder)
+                        arcname = os.path.relpath(file_path, work_folder)
                         zipf.write(file_path, arcname)
-
-            # Renombrar a .3mf
-            mf_name = os.path.join(model_folder, f"{model_name}_original.3mf")
-            os.rename(zip_full_path, mf_name)
-            print(f"✅ Archivo {mf_name} generado")
-            
+            print(f"✅ Archivo {output_path} generado")
         else:
             print(f"✅ Procesando con {len(impresoras_disponibles)} plantillas de impresoras")
             for impresora in impresoras_disponibles:
@@ -704,29 +750,23 @@ def procesar3MF(model_name: str, archivo_3mf_path: str) -> Optional[str]:
                     if os.path.exists(src_file):
                         shutil.copy(src_file, dst_file)
 
-                # Crear zip de todo tmp
-                zip_name = f"{model_name}_{impresora}.zip"
-                zip_full_path = os.path.join(model_folder, zip_name)
-                
-                with zipfile.ZipFile(zip_full_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                    for root, _, files in os.walk(tmp_folder):
+                output_path = os.path.join(model_folder, f"{clean_name}_{impresora}.3mf")
+                with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as zipf:
+                    for root, _, files in os.walk(work_folder):
                         for file in files:
                             file_path = os.path.join(root, file)
-                            arcname = os.path.relpath(file_path, tmp_folder)
+                            arcname = os.path.relpath(file_path, work_folder)
                             zipf.write(file_path, arcname)
+                print(f"✅ Archivo {output_path} generado para la impresora {impresora}")
 
-                # Renombrar a .3mf
-                mf_name = os.path.join(model_folder, f"{model_name}_{impresora}.3mf")
-                os.rename(zip_full_path, mf_name)
-                print(f"✅ Archivo {mf_name} generado para la impresora {impresora}")
+        # Limpiar workspace temporal para evitar acumulación
+        shutil.rmtree(work_folder, ignore_errors=True)
 
-        # 8. NO limpiar tmp aquí - se limpiará después de subir los archivos
-        # La carpeta model_folder se eliminará después de subir exitosamente
-        
         return model_folder
-        
+
     except Exception as e:
         print(f"❌ Error procesando 3MF '{model_name}': {e}")
+        shutil.rmtree(work_folder, ignore_errors=True)
         return None
 
 
@@ -777,7 +817,7 @@ def descargar_y_procesar_3mf(login_result: LoginResult, model_name: str, downloa
         Ruta a la carpeta del modelo procesado, o None si hay error
     """
     if download_folder is None:
-        download_folder = r"E:\descargas"
+        download_folder = os.getenv("DOWNLOAD_FOLDER", r"E:\descargas")
     
     try:
         print(f"⬇️ Descargando archivo 3MF: {model_name}")
@@ -795,16 +835,22 @@ def descargar_y_procesar_3mf(login_result: LoginResult, model_name: str, downloa
         # Realizar la descarga
         response = requests.get(download_url, headers=headers, stream=True)
         response.raise_for_status()
-        
-        # Generar nombre del archivo
-        filename = f"{model_name.replace(' ', '_').replace('/', '_')}.3mf"
+
+        # Generar nombre del archivo con nombre saneado
+        clean_name = _sanear_nombre_modelo(model_name)
+        filename = f"{clean_name.replace(' ', '_')}.3mf"
         file_path = os.path.join(download_folder, filename)
-        
-        # Guardar el archivo
+
+        # Obtener tamaño total
+        total_size = int(response.headers.get('content-length', 0))
+
+        # Guardar el archivo con barra de progreso
         with open(file_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        
+            with tqdm(total=total_size, unit='B', unit_scale=True, desc=f"Descargando {filename}", bar_format='{desc}: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt}') as pbar:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+                    pbar.update(len(chunk))
+
         print(f"✅ Archivo descargado: {file_path}")
         
         # Procesar el archivo 3MF
@@ -1058,17 +1104,6 @@ def calcular_signature_oss(
     # 4. Construir string to sign
     string_to_sign = f"{method}\n{content_md5}\n{content_type}\n{date}\n{oss_headers_str}{resource}"
     
-    # Debug: imprimir string to sign
-    print(f"🐛 DEBUG StringToSign:")
-    print(f"Method: '{method}'")
-    print(f"Content-MD5: '{content_md5}'")
-    print(f"Content-Type: '{content_type}'")
-    print(f"Date: '{date}'")
-    print(f"OSS Headers: '{oss_headers_str.rstrip()}'")
-    print(f"Resource: '{resource}'")
-    print(f"Full StringToSign:\n{repr(string_to_sign)}")
-    print("="*50)
-    
     # 5. Calcular HMAC-SHA1 signature
     signature = hmac.new(
         access_key_secret.encode('utf-8'),
@@ -1087,39 +1122,42 @@ def subir_archivo_3mf_oss(
     timeout: int = 120
 ) -> Optional[str]:
     """
-    Sube un archivo 3MF usando multipart upload de Alibaba Cloud OSS.
-    
+    Sube un archivo 3MF a Alibaba Cloud OSS usando PUT directo.
+
     Args:
         login_result: Resultado del login con tokens y sesión
         archivo_3mf_path: Ruta al archivo 3MF a subir
-        sts_token: Token STS para autenticación OSS
+        credentials: Credenciales de Alibaba Cloud
         timeout: Timeout en segundos
-    
+
     Returns:
         Key del archivo subido (ej: file3mf/xxx.3mf) o None si falla
     """
-    
+
     if not os.path.exists(archivo_3mf_path):
         print(f"❌ Archivo 3MF no encontrado: {archivo_3mf_path}")
         return None
-    
+
     try:
         # Generar nombre único para el archivo
         filename_uuid = generar_nombre_archivo_unico()
         oss_key = f"file3mf/{filename_uuid}.3mf"
-        
-        # Calcular MD5
-        md5_hex, md5_base64 = calcular_md5_archivo(archivo_3mf_path)
-        
+        oss_url = f"{OSS_3MF_BASE_URL}/{oss_key}"
+
         print(f"📤 Subiendo archivo 3MF: {os.path.basename(archivo_3mf_path)}")
         print(f"   📍 Destino: {oss_key}")
-        print(f"   🔍 MD5: {md5_hex}")
-        
-        # Headers comunes OSS con datetime preciso (usando UTC)
+
+        # Leer archivo
+        with open(archivo_3mf_path, 'rb') as f:
+            file_data = f.read()
+
+        # Configurar headers OSS (igual a imagen pero con Content-Type de 3MF)
         from datetime import datetime as dt
         gmt_time = dt.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
-        
-        base_headers = {
+
+        headers = {
+            'Content-Type': 'model/3mf',
+            'Content-Length': str(len(file_data)),
             'X-Oss-Date': gmt_time,
             'X-Oss-Security-Token': credentials.session_token,
             'X-Oss-User-Agent': 'aliyun-sdk-js/6.17.1 Chrome 143.0.0.0 on Windows 10 64-bit',
@@ -1130,115 +1168,29 @@ def subir_archivo_3mf_oss(
             'Sec-Fetch-Dest': 'empty',
             'Accept': '*/*'
         }
-        
-        # PASO 1: Inicializar multipart upload
-        print("   🔄 Iniciando multipart upload...")
-        
-        init_headers = base_headers.copy()
-        init_headers.update({
-            'Content-Length': '0',
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Content-Disposition': f'attachment;filename="{os.path.basename(archivo_3mf_path)}"'
-        })
-        
-        # Calcular signature para inicialización
-        init_signature = calcular_signature_oss('POST', f'/internal-creality-usa/{oss_key}?uploads', init_headers, credentials.secret_access_key)
-        init_headers['Authorization'] = f'OSS {credentials.access_key_id}:{init_signature}'
-        
-        init_url = f"{OSS_3MF_BASE_URL}/{oss_key}?uploads"
-        
-        init_response = requests.post(
-            init_url,
-            headers=init_headers,
-            timeout=timeout
-        )
-        
-        if init_response.status_code != 200:
-            print(f"❌ Error inicializando multipart upload: {init_response.status_code} - {init_response.text}")
-            return None
-        
-        # Parsear respuesta XML para obtener UploadId
-        try:
-            root = ET.fromstring(init_response.text)
-            upload_id = root.find('UploadId').text
-            print(f"   ✅ Upload iniciado. UploadId: {upload_id}")
-        except Exception as e:
-            print(f"❌ Error parseando respuesta de inicialización: {e}")
-            return None
-        
-        # PASO 2: Subir archivo como parte 1
-        print("   ⬆️ Subiendo archivo...")
-        
-        with open(archivo_3mf_path, 'rb') as f:
-            file_data = f.read()
-        
-        upload_headers = base_headers.copy()
-        upload_headers.update({
-            'Content-Length': str(len(file_data)),
-            'Content-Type': 'model/3mf'
-        })
-        
-        # Calcular signature para upload
-        upload_signature = calcular_signature_oss('PUT', f'/internal-creality-usa/{oss_key}?partNumber=1&uploadId={upload_id}', upload_headers, credentials.secret_access_key)
-        upload_headers['Authorization'] = f'OSS {credentials.access_key_id}:{upload_signature}'
-        
-        upload_url = f"{OSS_3MF_BASE_URL}/{oss_key}?partNumber=1&uploadId={upload_id}"
-        
-        upload_response = requests.put(
-            upload_url,
+
+        # Calcular signature OSS
+        signature = calcular_signature_oss('PUT', f'/internal-creality-usa/{oss_key}', headers, credentials.secret_access_key)
+        headers['Authorization'] = f'OSS {credentials.access_key_id}:{signature}'
+
+        # Realizar upload PUT
+        response = requests.put(
+            oss_url,
             data=file_data,
-            headers=upload_headers,
+            headers=headers,
             timeout=timeout
         )
-        
-        if upload_response.status_code != 200:
-            print(f"❌ Error subiendo archivo: {upload_response.status_code} - {upload_response.text}")
-            return None
-        
-        # Obtener ETag de la respuesta
-        etag = upload_response.headers.get('ETag', '').strip('"')
-        print(f"   ✅ Archivo subido. ETag: {etag}")
-        
-        # PASO 3: Completar multipart upload
-        print("   🏁 Completando multipart upload...")
-        
-        complete_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
-<CompleteMultipartUpload>
-  <Part>
-    <PartNumber>1</PartNumber>
-    <ETag>"{etag}"</ETag>
-  </Part>
-</CompleteMultipartUpload>'''
-        
-        complete_headers = base_headers.copy()
-        complete_headers.update({
-            'Content-Length': str(len(complete_xml.encode('utf-8'))),
-            'Content-Type': 'application/xml'
-        })
-        
-        # Calcular signature para completar upload
-        complete_signature = calcular_signature_oss('POST', f'/internal-creality-usa/{oss_key}?uploadId={upload_id}', complete_headers, credentials.secret_access_key)
-        complete_headers['Authorization'] = f'OSS {credentials.access_key_id}:{complete_signature}'
-        
-        complete_url = f"{OSS_3MF_BASE_URL}/{oss_key}?uploadId={upload_id}"
-        
-        complete_response = requests.post(
-            complete_url,
-            data=complete_xml,
-            headers=complete_headers,
-            timeout=timeout
-        )
-        
-        if complete_response.status_code == 200:
+
+        if response.status_code == 200:
             print(f"✅ Archivo 3MF subido exitosamente")
             print(f"   📁 Key: {oss_key}")
             return oss_key
         else:
-            print(f"❌ Error completando multipart upload: {complete_response.status_code} - {complete_response.text}")
+            print(f"❌ Error subiendo archivo 3MF: {response.status_code} - {response.text[:200]}")
             return None
-            
+
     except Exception as e:
-        print(f"❌ Error subiendo archivo 3MF '{os.path.basename(archivo_3mf_path)}': {e}")
+        print(f"❌ Error subiendo archivo 3MF: {e}")
         return None
 
 
