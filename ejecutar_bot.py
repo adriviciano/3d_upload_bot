@@ -171,6 +171,11 @@ def main():
                     errores_total += 1
                     bot_status.agregar_error(f"{model_name}: {str(e)[:80]}")
 
+            # Esperar 2 minutos antes siguiente página (rate limit)
+            print("\n⏳ Esperando 2 minutos antes de siguiente página...")
+            import time
+            time.sleep(120)
+
             # Pasar a siguiente página
             if len(modelos) < 20:
                 print("\n✅ Se han procesado todos los modelos disponibles")

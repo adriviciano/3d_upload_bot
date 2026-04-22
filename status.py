@@ -24,11 +24,14 @@ class BotStatus:
         self._guardar()
 
     def agregar_error(self, error):
-        """Agrega un error a la lista (máximo 10 últimos)"""
+        """Agrega un error a la lista (máximo 20 últimos)"""
         self.errores += 1
-        self.ultimos_errores.insert(0, str(error)[:100])
-        self.ultimos_errores = self.ultimos_errores[:10]
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        error_msg = f"[{timestamp}] {str(error)[:120]}"
+        self.ultimos_errores.insert(0, error_msg)
+        self.ultimos_errores = self.ultimos_errores[:20]
         self._guardar()
+        print(f"   📋 Error registrado: {error_msg}")
 
     def _guardar(self):
         """Guarda estado a JSON"""

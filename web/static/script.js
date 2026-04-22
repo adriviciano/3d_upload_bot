@@ -41,10 +41,10 @@ async function actualizarEstado() {
         const logsEl = document.getElementById('logs-container');
         if (data.ultimos_errores && data.ultimos_errores.length > 0) {
             logsEl.innerHTML = data.ultimos_errores
-                .map(error => `<div class="log-item">❌ ${error}</div>`)
+                .map(error => `<div class="log-item">${error}</div>`)
                 .join('');
         } else {
-            logsEl.innerHTML = '<p class="no-errors">Sin errores</p>';
+            logsEl.innerHTML = '<p class="no-errors">Sin errores registrados</p>';
         }
 
         // Actualizar timestamp

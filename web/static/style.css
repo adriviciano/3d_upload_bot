@@ -142,13 +142,15 @@ h2 {
 }
 
 .log-item {
-    background: #fff3cd;
+    background: #ffe6e6;
     border-left: 4px solid #ff6b6b;
     padding: 12px;
     margin-bottom: 10px;
     border-radius: 4px;
-    font-size: 0.9em;
-    color: #856404;
+    font-size: 0.85em;
+    color: #721c24;
+    font-family: 'Courier New', monospace;
+    word-break: break-word;
 }
 
 .log-item:last-child {
