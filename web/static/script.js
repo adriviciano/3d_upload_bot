@@ -29,6 +29,17 @@ async function actualizarEstado() {
             indicador.className = 'status-indicator';
         }
 
+        // Actualizar running status
+        const runningIndicator = document.getElementById('running-indicator');
+        const runningText = document.getElementById('running-text');
+        if (data.is_running) {
+            runningIndicator.className = 'running-indicator running';
+            runningText.textContent = 'Estado: Bot en ejecución ✓';
+        } else {
+            runningIndicator.className = 'running-indicator';
+            runningText.textContent = 'Estado: Bot detenido';
+        }
+
         // Actualizar modelo actual
         const modeloEl = document.getElementById('modelo-actual');
         if (data.modelo_actual) {

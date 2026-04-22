@@ -5,6 +5,7 @@ from flask import Flask, render_template, jsonify
 import json
 import os
 from pathlib import Path
+from datetime import datetime, timedelta
 
 app = Flask(__name__, static_folder='web/static', template_folder='web')
 
@@ -17,10 +18,38 @@ def get_default_status():
         "modelos_procesados": 0,
         "archivos_subidos": 0,
         "errores": 0,
-        "ultimos_errores": [],
         "pagina": 0,
         "timestamp": ""
     }
+
+def get_ultimos_errores(limit=20):
+    """Lee últimos N errores del archivo log"""
+    try:
+        if not os.path.exists('errors.log'):
+            return []
+        with open('errors.log', 'r', encoding='utf-8') as f:
+            lineas = f.readlines()
+        return [linea.strip() for linea in lineas[-limit:] if linea.strip()]
+    except:
+        return []
+
+def is_bot_running():
+    """Verifica si el bot está corriendo basado en timestamp de estado"""
+    try:
+        if not os.path.exists(STATUS_FILE):
+            return False
+        with open(STATUS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        timestamp_str = data.get('timestamp', '')
+        if not timestamp_str:
+            return False
+        # Parsear ISO format datetime
+        timestamp = datetime.fromisoformat(timestamp_str)
+        ahora = datetime.now()
+        # Si se actualizó hace menos de 30 segundos, está corriendo
+        return (ahora - timestamp) < timedelta(seconds=30)
+    except:
+        return False
 
 def load_status():
     """Carga el estado del bot desde archivo"""
@@ -40,7 +69,10 @@ def index():
 @app.route('/api/status')
 def api_status():
     """API que retorna estado actual del bot"""
-    return jsonify(load_status())
+    status = load_status()
+    status['ultimos_errores'] = get_ultimos_errores(20)
+    status['is_running'] = is_bot_running()
+    return jsonify(status)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 STATUS_FILE = 'bot_status.json'
+ERROR_LOG = 'errors.log'
 
 class BotStatus:
     def __init__(self):
@@ -13,7 +14,6 @@ class BotStatus:
         self.modelos_procesados = 0
         self.archivos_subidos = 0
         self.errores = 0
-        self.ultimos_errores = []
         self.pagina = 0
 
     def actualizar(self, **kwargs):
@@ -24,14 +24,16 @@ class BotStatus:
         self._guardar()
 
     def agregar_error(self, error):
-        """Agrega un error a la lista (máximo 20 últimos)"""
+        """Agrega error a archivo log"""
         self.errores += 1
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        error_msg = f"[{timestamp}] {str(error)[:120]}"
-        self.ultimos_errores.insert(0, error_msg)
-        self.ultimos_errores = self.ultimos_errores[:20]
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        error_msg = f"[{timestamp}] {str(error)[:200]}"
+
+        # Escribir a archivo log
+        with open(ERROR_LOG, 'a', encoding='utf-8') as f:
+            f.write(error_msg + '\n')
+
         self._guardar()
-        print(f"   📋 Error registrado: {error_msg}")
 
     def _guardar(self):
         """Guarda estado a JSON"""
@@ -41,7 +43,6 @@ class BotStatus:
             "modelos_procesados": self.modelos_procesados,
             "archivos_subidos": self.archivos_subidos,
             "errores": self.errores,
-            "ultimos_errores": self.ultimos_errores,
             "pagina": self.pagina,
             "timestamp": datetime.now().isoformat()
         }

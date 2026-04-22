@@ -25,7 +25,16 @@ header {
 
 header h1 {
     font-size: 2.5em;
-    margin-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.header-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    font-size: 1.1em;
 }
 
 .timestamp {
@@ -113,6 +122,19 @@ h2 {
 .status-indicator.processing {
     background: #ffd93d;
     animation: pulse 1s infinite;
+}
+
+.running-indicator {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ff6b6b;
+    animation: pulse 2s infinite;
+}
+
+.running-indicator.running {
+    background: #51cf66;
 }
 
 @keyframes pulse {
