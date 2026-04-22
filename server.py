@@ -34,20 +34,18 @@ def get_ultimos_errores(limit=20):
         return []
 
 def is_bot_running():
-    """Verifica si el bot está corriendo basado en timestamp de estado"""
+    """Verifica si el bot está corriendo verificando su PID"""
     try:
-        if not os.path.exists(STATUS_FILE):
+        if not os.path.exists('bot.pid'):
             return False
-        with open(STATUS_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        timestamp_str = data.get('timestamp', '')
-        if not timestamp_str:
-            return False
-        # Parsear ISO format datetime
-        timestamp = datetime.fromisoformat(timestamp_str)
-        ahora = datetime.now()
-        # Si se actualizó hace menos de 30 segundos, está corriendo
-        return (ahora - timestamp) < timedelta(seconds=30)
+        with open('bot.pid', 'r') as f:
+            pid = int(f.read().strip())
+        # Verificar si proceso existe (sin matar)
+        import signal
+        os.kill(pid, 0)
+        return True
+    except (ValueError, ProcessLookupError, FileNotFoundError):
+        return False
     except:
         return False
 

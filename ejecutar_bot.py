@@ -34,6 +34,12 @@ def load_dotenv(path: Path = Path(".env")) -> None:
 
 def main():
     """Función principal del bot"""
+    # Guardar PID para que web verifique
+    import signal
+    pid = os.getpid()
+    with open('bot.pid', 'w') as f:
+        f.write(str(pid))
+
     print("🤖 Iniciando bot de Creality Cloud...")
     print("=" * 60)
 
