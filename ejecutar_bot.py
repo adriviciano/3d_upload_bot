@@ -129,6 +129,7 @@ def main():
                     if not result:
                         print(f"   ⚠️ No se pudo obtener información del modelo")
                         errores_total += 1
+                        bot_status.agregar_error(f"{model_name}: No se pudo obtener información")
                         continue
 
                     _, download_url = result
@@ -140,6 +141,7 @@ def main():
                     if not model_folder:
                         print(f"   ❌ Error procesando el modelo")
                         errores_total += 1
+                        bot_status.agregar_error(f"{model_name}: Error descargando/procesando 3MF")
                         continue
 
                     print(f"   ✅ Modelo procesado correctamente")
@@ -168,6 +170,7 @@ def main():
                     if fallidos > 0:
                         print(f"   ⚠️ {fallidos} archivos fallaron al subir")
                         errores_total += fallidos
+                        bot_status.agregar_error(f"{model_name}: {fallidos} archivos fallaron al subir")
 
                 except KeyboardInterrupt:
                     print("\n\n⚠️ Proceso interrumpido por el usuario")
