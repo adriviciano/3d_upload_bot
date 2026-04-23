@@ -6,6 +6,7 @@ from pathlib import Path
 
 STATUS_FILE = 'bot_status.json'
 ERROR_LOG = 'errors.log'
+CONFIG_FILE = 'bot_config.json'
 
 class BotStatus:
     def __init__(self):
@@ -15,6 +16,8 @@ class BotStatus:
         self.archivos_subidos = 0
         self.errores = 0
         self.pagina = 0
+        self.pausa_inicio = None
+        self.pausa_duracion = 0
 
     def actualizar(self, **kwargs):
         """Actualiza el estado y guarda a archivo"""
@@ -23,13 +26,18 @@ class BotStatus:
                 setattr(self, key, value)
         self._guardar()
 
+    def iniciar_pausa(self, duracion_segundos):
+        """Marca inicio de pausa"""
+        self.pausa_inicio = datetime.now().isoformat()
+        self.pausa_duracion = duracion_segundos
+        self._guardar()
+
     def agregar_error(self, error):
         """Agrega error a archivo log"""
         self.errores += 1
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         error_msg = f"[{timestamp}] {str(error)[:200]}"
 
-        # Escribir a archivo log
         with open(ERROR_LOG, 'a', encoding='utf-8') as f:
             f.write(error_msg + '\n')
 
@@ -44,10 +52,29 @@ class BotStatus:
             "archivos_subidos": self.archivos_subidos,
             "errores": self.errores,
             "pagina": self.pagina,
+            "pausa_inicio": self.pausa_inicio,
+            "pausa_duracion": self.pausa_duracion,
             "timestamp": datetime.now().isoformat()
         }
         with open(STATUS_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
+
+def get_delay_config():
+    """Lee delay configurado desde archivo"""
+    if not Path(CONFIG_FILE).exists():
+        return 120
+    try:
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        return config.get('delay_entre_descargas', 120)
+    except:
+        return 120
+
+def set_delay_config(delay_segundos):
+    """Guarda delay configurado"""
+    config = {'delay_entre_descargas': int(delay_segundos)}
+    with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+        json.dump(config, f, indent=2)
 
 # Instancia global
 bot_status = BotStatus()

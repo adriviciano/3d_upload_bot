@@ -15,7 +15,7 @@ from models import (
     descargar_y_procesar_3mf,
     subir_todos_los_perfiles
 )
-from status import bot_status
+from status import bot_status, get_delay_config
 
 
 def load_dotenv(path: Path = Path(".env")) -> None:
@@ -36,6 +36,15 @@ def main():
     """Función principal del bot"""
     # Guardar PID para que web verifique
     import signal
+
+    class BotInterrupt(Exception):
+        pass
+
+    def handle_sigterm(signum, frame):
+        raise BotInterrupt("Señal SIGTERM recibida")
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
+
     pid = os.getpid()
     with open('bot.pid', 'w') as f:
         f.write(str(pid))
@@ -172,18 +181,20 @@ def main():
                         errores_total += fallidos
                         bot_status.agregar_error(f"{model_name}: {fallidos} archivos fallaron al subir")
 
-                except KeyboardInterrupt:
-                    print("\n\n⚠️ Proceso interrumpido por el usuario")
+                except (KeyboardInterrupt, BotInterrupt):
+                    print("\n\n⚠️ Proceso interrumpido")
                     raise
                 except Exception as e:
                     print(f"   ❌ Error procesando modelo: {e}")
                     errores_total += 1
                     bot_status.agregar_error(f"{model_name}: {str(e)[:80]}")
 
-            # Esperar 2 minutos antes siguiente página (rate limit)
-            print("\n⏳ Esperando 2 minutos antes de siguiente página...")
+            # Esperar antes de siguiente página (configurado)
+            delay = get_delay_config()
+            print(f"\n⏳ Esperando {delay}s antes de siguiente página...")
+            bot_status.iniciar_pausa(delay)
             import time
-            time.sleep(120)
+            time.sleep(delay)
 
             # Pasar a siguiente página
             if len(modelos) < 20:
@@ -202,8 +213,8 @@ def main():
         print(f"❌ Errores encontrados: {errores_total}")
         print("\n🎉 ¡Bot completado!")
 
-    except KeyboardInterrupt:
-        print("\n\n⚠️ Bot detenido por el usuario")
+    except (KeyboardInterrupt, BotInterrupt):
+        print("\n\n⚠️ Bot detenido")
         sys.exit(0)
     except Exception as e:
         print(f"\n❌ Error fatal: {e}")

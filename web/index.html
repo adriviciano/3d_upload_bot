@@ -46,6 +46,30 @@
                 <div class="current-model" id="modelo-actual">
                     Esperando información...
                 </div>
+                <div class="pause-info" id="pause-info" style="display:none;">
+                    ⏸️ En pausa | Tiempo restante: <span id="pausa-restante">0</span>s
+                </div>
+            </div>
+        </div>
+
+        <div class="controls-section">
+            <h2>Controles</h2>
+            <div class="controls-grid">
+                <div class="control-box">
+                    <label for="delay-input">Delay entre descargas (segundos):</label>
+                    <div class="input-group">
+                        <input type="number" id="delay-input" min="1" value="120">
+                        <button id="delay-btn" class="btn btn-primary">Actualizar</button>
+                    </div>
+                    <small>Delay actual: <span id="delay-actual">120</span>s</small>
+                </div>
+                <div class="control-box">
+                    <label>Control del Bot:</label>
+                    <div class="button-group">
+                        <button id="start-btn" class="btn btn-success">Iniciar Bot</button>
+                        <button id="stop-btn" class="btn btn-danger">Parar Bot</button>
+                    </div>
+                </div>
             </div>
         </div>
 
