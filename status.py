@@ -60,15 +60,7 @@ class BotStatus:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
 def get_delay_config():
-    """Lee delay configurado desde archivo"""
-    if not Path(CONFIG_FILE).exists():
-        return 240
-    try:
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-        return config.get('delay_entre_descargas', 240)
-    except:
-        return 240
+    return 500 
 
 def set_delay_config(delay_segundos):
     """Guarda delay configurado"""
