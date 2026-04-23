@@ -52,6 +52,10 @@ def main():
     print("🤖 Iniciando bot de Creality Cloud...")
     print("=" * 60)
 
+    # Limpiar logs de ejecuciones anteriores
+    if os.path.exists('errors.log'):
+        os.remove('errors.log')
+
     # Cargar credenciales
     load_dotenv()
     account = os.getenv("CREALITY_EMAIL")
