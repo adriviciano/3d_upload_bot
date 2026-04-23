@@ -6,6 +6,7 @@ Procesa y sube automáticamente perfiles de impresión de modelos populares.
 
 import os
 import sys
+import time
 from pathlib import Path
 from login import LoginResult, login
 from models import (
@@ -185,6 +186,11 @@ def main():
                         errores_total += fallidos
                         bot_status.agregar_error(f"{model_name}: {fallidos} archivos fallaron al subir")
 
+                    # Esperar antes de siguiente modelo (configurado)
+                    delay = get_delay_config()
+                    print(f"\n⏳ Esperando {delay}s antes de siguiente modelo...")
+                    bot_status.iniciar_pausa(delay)
+                    time.sleep(delay)
                 except (KeyboardInterrupt, BotInterrupt):
                     print("\n\n⚠️ Proceso interrumpido")
                     raise
@@ -192,13 +198,6 @@ def main():
                     print(f"   ❌ Error procesando modelo: {e}")
                     errores_total += 1
                     bot_status.agregar_error(f"{model_name}: {str(e)[:80]}")
-
-            # Esperar antes de siguiente página (configurado)
-            delay = get_delay_config()
-            print(f"\n⏳ Esperando {delay}s antes de siguiente página...")
-            bot_status.iniciar_pausa(delay)
-            import time
-            time.sleep(delay)
 
             # Pasar a siguiente página
             if len(modelos) < 20:
