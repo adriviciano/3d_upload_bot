@@ -60,7 +60,7 @@ class BotStatus:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
 def get_delay_config():
-    return 120 
+    return 200 
 
 def set_delay_config(delay_segundos):
     """Guarda delay configurado"""
