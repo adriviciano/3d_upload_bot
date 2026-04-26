@@ -125,6 +125,23 @@ def main():
 
             # Procesar cada modelo sin visitar
             for i, model_name in enumerate(modelos_sin_visitar, 1):
+
+                # Esperar antes de siguiente modelo (configurado)
+                delay = get_delay_config()
+                print(f"\n⏳ Esperando {delay}s antes de siguiente modelo...")
+                bot_status.iniciar_pausa(delay)
+                time.sleep(delay)
+
+                bot_status.actualizar(
+                    estado="Esperando...",
+                    modelo_actual=model_name,
+                    pagina=pagina,
+                    modelos_procesados=procesados_total,
+                    archivos_subidos=subidos_total,
+                    errores=errores_total
+                )
+
+
                 print(f"\n📦 [{pagina}-{i}/{len(modelos_sin_visitar)}] Procesando: {model_name}")
                 print("-" * 60)
 
@@ -186,11 +203,6 @@ def main():
                         errores_total += fallidos
                         bot_status.agregar_error(f"{model_name}: {fallidos} archivos fallaron al subir")
 
-                    # Esperar antes de siguiente modelo (configurado)
-                    delay = get_delay_config()
-                    print(f"\n⏳ Esperando {delay}s antes de siguiente modelo...")
-                    bot_status.iniciar_pausa(delay)
-                    time.sleep(delay)
                 except (KeyboardInterrupt, BotInterrupt):
                     print("\n\n⚠️ Proceso interrumpido")
                     raise
