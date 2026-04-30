@@ -216,6 +216,22 @@ def main():
                 print("\n✅ Se han procesado todos los modelos disponibles")
                 break
 
+
+            # Esperar antes de siguiente pagina
+            delay = get_delay_config()*3
+            print(f"\n⏳ Esperando {delay}s antes de siguiente pagina...")
+            bot_status.iniciar_pausa(delay)
+            time.sleep(delay)
+
+            bot_status.actualizar(
+                estado="Esperando para siguiente pagina...",
+                modelo_actual=model_name,
+                pagina=pagina,
+                modelos_procesados=procesados_total,
+                archivos_subidos=subidos_total,
+                errores=errores_total
+            )
+
             pagina += 1
             print(f"\n{'='*60}")
 
