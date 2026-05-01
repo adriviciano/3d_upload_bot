@@ -218,7 +218,7 @@ def main():
 
 
             # Esperar antes de siguiente pagina
-            delay = get_delay_config()*3
+            delay = get_delay_config()*5
             print(f"\n⏳ Esperando {delay}s antes de siguiente pagina...")
             bot_status.iniciar_pausa(delay)
             time.sleep(delay)

@@ -160,6 +160,20 @@ h2 {
     border-top: 1px solid #e0e0e0;
 }
 
+.pause-info {
+    margin-top: 15px;
+    padding: 12px 15px;
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    border-radius: 4px;
+    color: #856404;
+    font-weight: 500;
+}
+
+#pause-text {
+    font-family: 'Courier New', monospace;
+}
+
 .logs-container {
     max-height: 150px;
     overflow-y: auto;

@@ -48,6 +48,18 @@ async function actualizarEstado() {
             modeloEl.textContent = 'Esperando información...';
         }
 
+        // Mostrar pausa si está activa
+        const pauseInfo = document.getElementById('pause-info');
+        const pauseText = document.getElementById('pause-text');
+        if (data.pausa_restante && data.pausa_restante > 0) {
+            pauseInfo.style.display = 'block';
+            const minutos = Math.floor(data.pausa_restante / 60);
+            const segundos = data.pausa_restante % 60;
+            pauseText.textContent = `Pausa en progreso: ${minutos}m ${segundos}s restantes`;
+        } else {
+            pauseInfo.style.display = 'none';
+        }
+
         // Actualizar logs de errores
         const logsEl = document.getElementById('logs-container');
         if (data.ultimos_errores && data.ultimos_errores.length > 0) {
