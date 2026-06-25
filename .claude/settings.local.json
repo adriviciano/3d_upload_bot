@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python test_subida.py)"
+      "Bash(python test_subida.py)",
+      "PowerShell(python -c \"import ast; ast.parse\\(open\\('models.py',encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('dimensiones.py',encoding='utf-8'\\).read\\(\\)\\); print\\('SYNTAX OK'\\)\")",
+      "PowerShell($f=\"D:\\\\3d_upload_bot\\\\Articulated Flexi Dragon_K2Pro.3mf\"; Add-Type -AssemblyName System.IO.Compression.FileSystem; $z=[System.IO.Compression.ZipFile]::OpenRead\\($f\\); $z.Entries | Select-Object FullName,Length | Format-Table -AutoSize; $z.Dispose\\(\\))"
     ]
   }
 }

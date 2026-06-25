@@ -20,6 +20,12 @@ import hmac
 from datetime import datetime
 import xml.etree.ElementTree as ET
 from tqdm import tqdm
+from dimensiones import (
+    obtener_dimensiones_modelo,
+    obtener_dimensiones_cama,
+    modelo_cabe_en_cama,
+    MARGEN_SEGURIDAD_MM,
+)
 
 
 def _crear_placeholder_plate(dest_path: str) -> None:
@@ -720,6 +726,15 @@ def procesar3MF(model_name: str, archivo_3mf_path: str) -> Optional[str]:
             print("⚠️ plate_1.png no encontrado, creando placeholder")
             _crear_placeholder_plate(final_image_path)
 
+        # 6.5. Calcular dimensiones del modelo (para filtrar por cama)
+        dims_modelo = obtener_dimensiones_modelo(work_folder)
+        if dims_modelo:
+            print(f"📐 Dimensiones del modelo: "
+                  f"{dims_modelo[0]:.1f} x {dims_modelo[1]:.1f} x {dims_modelo[2]:.1f} mm")
+        else:
+            print("⚠️ No se pudieron determinar las dimensiones del modelo; "
+                  "no se filtrará por tamaño de cama")
+
         # 7. Procesar cada impresora en plantillas
         impresoras_disponibles = []
         if os.path.exists(plantillas_folder):
@@ -740,8 +755,24 @@ def procesar3MF(model_name: str, archivo_3mf_path: str) -> Optional[str]:
             print(f"✅ Archivo {output_path} generado")
         else:
             print(f"✅ Procesando con {len(impresoras_disponibles)} plantillas de impresoras")
+            generados = 0
             for impresora in impresoras_disponibles:
                 plantilla_path = os.path.join(plantillas_folder, impresora)
+
+                # Verificar que el modelo cabe en la cama de esta impresora
+                if dims_modelo:
+                    dims_cama = obtener_dimensiones_cama(plantilla_path, impresora)
+                    if dims_cama and not modelo_cabe_en_cama(dims_modelo, dims_cama):
+                        print(f"⏭️ Modelo "
+                              f"({dims_modelo[0]:.1f}x{dims_modelo[1]:.1f}x{dims_modelo[2]:.1f} mm) "
+                              f"NO cabe en cama de {impresora} "
+                              f"({dims_cama[0]:.0f}x{dims_cama[1]:.0f}x{dims_cama[2]:.0f} mm "
+                              f"- margen {MARGEN_SEGURIDAD_MM:.0f}mm). "
+                              f"Se omite esta impresora.")
+                        continue
+                    if not dims_cama:
+                        print(f"⚠️ No se pudo determinar la cama de {impresora}; "
+                              f"se genera sin filtrar")
 
                 # Copiar archivos de la plantilla a Metadata
                 for file_name in ["custom_gcode_per_layer.xml", "project_settings.config"]:
@@ -758,6 +789,10 @@ def procesar3MF(model_name: str, archivo_3mf_path: str) -> Optional[str]:
                             arcname = os.path.relpath(file_path, work_folder)
                             zipf.write(file_path, arcname)
                 print(f"✅ Archivo {output_path} generado para la impresora {impresora}")
+                generados += 1
+
+            if generados == 0:
+                print("⚠️ Ningún perfil generado: el modelo no cabe en ninguna cama disponible")
 
         # Limpiar workspace temporal para evitar acumulación
         shutil.rmtree(work_folder, ignore_errors=True)
