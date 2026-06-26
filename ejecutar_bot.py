@@ -14,9 +14,13 @@ from models import (
     list_trending_models,
     process_model_complete,
     descargar_y_procesar_3mf,
-    subir_todos_los_perfiles
+    subir_todos_los_perfiles,
+    DailyLimitReached
 )
 from status import bot_status, get_delay_config
+
+# Pausa larga cuando Creality devuelve el límite diario de operaciones
+PAUSA_LIMITE_DIARIO = 15 * 3600  # 15 horas
 
 
 def load_dotenv(path: Path = Path(".env")) -> None:
@@ -123,14 +127,23 @@ def main():
             print(f"   🚀 {len(modelos_sin_visitar)} modelos sin procesar")
             print("=" * 60)
 
+            # Si el modelo anterior no subió nada (p.ej. no cabe en ninguna
+            # cama), saltamos la espera previa al siguiente modelo.
+            saltar_espera = False
+
             # Procesar cada modelo sin visitar
             for i, model_name in enumerate(modelos_sin_visitar, 1):
 
-                # Esperar antes de siguiente modelo (configurado)
-                delay = get_delay_config()
-                print(f"\n⏳ Esperando {delay}s antes de siguiente modelo...")
-                bot_status.iniciar_pausa(delay)
-                time.sleep(delay)
+                # Esperar antes de siguiente modelo (configurado), salvo que el
+                # modelo anterior no subiera ningún archivo.
+                if saltar_espera:
+                    print("\n⏭️ El modelo anterior no subió nada; se omite la espera.")
+                    saltar_espera = False
+                else:
+                    delay = get_delay_config()
+                    print(f"\n⏳ Esperando {delay}s antes de siguiente modelo...")
+                    bot_status.iniciar_pausa(delay)
+                    time.sleep(delay)
 
                 bot_status.actualizar(
                     estado="Esperando...",
@@ -161,6 +174,7 @@ def main():
                         print(f"   ⚠️ No se pudo obtener información del modelo")
                         errores_total += 1
                         bot_status.agregar_error(f"{model_name}: No se pudo obtener información")
+                        saltar_espera = True  # no se subió nada
                         continue
 
                     _, download_url = result

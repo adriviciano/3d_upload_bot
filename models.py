@@ -44,6 +44,23 @@ OSS_IMAGE_BASE_URL = "https://pic2-creality.oss-us-east-1.aliyuncs.com"
 CDN_IMAGE_BASE_URL = "https://pic2-cdn.creality.com/crealityCloud/upload"
 
 
+class DailyLimitReached(Exception):
+    """Se alcanzó el límite diario de operaciones de subida de Creality."""
+    pass
+
+
+def _es_limite_diario(msg: str) -> bool:
+    """Detecta el mensaje de límite diario de operaciones de Creality."""
+    if not msg:
+        return False
+    msg_lower = msg.lower()
+    return (
+        "operations has reached the limit" in msg_lower
+        or "limit of today" in msg_lower
+        or "come again tomorrow" in msg_lower
+    )
+
+
 @dataclass
 class ModelInfo:
     id: str
@@ -1468,9 +1485,12 @@ def subir_archivo_3mf(
         # Procesar la respuesta
         data = response.json()
         if data.get("code") != 0:
-            print(f"❌ Error en la subida: {data.get('msg', 'Error desconocido')}")
+            msg = data.get('msg', 'Error desconocido')
+            print(f"❌ Error en la subida: {msg}")
+            if _es_limite_diario(msg):
+                raise DailyLimitReached(msg)
             return False
-        
+
         # Procesar información de la respuesta
         upload_info = procesar_respuesta_upload3mf(data)
         
@@ -1489,7 +1509,9 @@ def subir_archivo_3mf(
             print(f"   ⚠️ No se pudieron obtener los detalles del modelo")
         
         return True
-        
+
+    except DailyLimitReached:
+        raise
     except Exception as e:
         print(f"❌ Error subiendo archivo 3MF '{file_name}': {e}")
         return False
@@ -1559,7 +1581,9 @@ def subir_todos_los_perfiles(
                 
             # Pequeña pausa entre subidas para no saturar el servidor
             time.sleep(2)
-            
+
+        except DailyLimitReached:
+            raise
         except Exception as e:
             print(f"❌ Error subiendo {archivo_3mf}: {e}")
             fallidos += 1
